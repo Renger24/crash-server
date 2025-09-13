@@ -6,13 +6,21 @@ const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 
+// Расширенная CORS конфигурация
 app.use(cors({
   origin: "*",
-  methods: ["GET", "POST"]
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"],
+  credentials: true
 }));
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Простой endpoint для проверки
+app.get('/', (req, res) => {
+  res.status(200).json({ message: 'Crash Game Server is running' });
 });
 
 let gameState = {
@@ -28,11 +36,18 @@ let gameState = {
 let countdownInterval = null;
 let gameInterval = null;
 
+// Socket.IO с настройками для Vercel
 const io = socketIo(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'], // Поддержка обоих методов
+  allowEIO3: true, // Совместимость
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 io.on('connection', (socket) => {
@@ -192,9 +207,14 @@ function resetGame() {
   io.emit('gameReset', Array.from(gameState.players.values()));
 }
 
+// ВАЖНО: Для Vercel нужно экспортировать app
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-});
+
+// Только для локальной разработки
+if (require.main === module) {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 module.exports = app;
